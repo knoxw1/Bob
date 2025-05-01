@@ -6,7 +6,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-const COHERE_API_KEY = "YOUR_COHERE_API_KEY"; // Replace with your Cohere API key
+const COHERE_API_KEY = "KMntogWwwmGEghQ3zzaxKVNpZEeXGOgYapreMmnI"; // Replace with your Cohere API key
 
 app.post('/solve', async (req, res) => {
   const { question, options } = req.body;
