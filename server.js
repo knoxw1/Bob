@@ -1,25 +1,29 @@
 const express = require('express');
 const cors = require('cors');
-const math = require('mathjs'); // Ensure math.js is installed
+const fetch = require('node-fetch');
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-app.post('/solve-equation', (req, res) => {
-  const { equation } = req.body;
+const COHERE_API_KEY = process.env.COHERE_API_KEY; // Use environment variable
 
-  if (!equation) {
-    return res.status(400).json({ error: "Equation is required" });
-  }
-
+app.post('/proxy', async (req, res) => {
   try {
-    const solution = math.evaluate(equation.replace(/\s+/g, '')); // Remove whitespace
-    res.json({ solution });
+    const response = await fetch("https://api.cohere.ai/v1/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${COHERE_API_KEY}`,
+      },
+      body: JSON.stringify(req.body),
+    });
+    const data = await response.json();
+    res.json(data);
   } catch (error) {
-    res.status(500).json({ error: `Error solving equation: ${error.message}` });
+    res.status(500).json({ error: error.message });
   }
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+app.listen(PORT, () => console.log(`Proxy server running on port ${PORT}`));
