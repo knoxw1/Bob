@@ -6,6 +6,61 @@ import { Chess } from 'chess.js';
 const LEGACY_STORAGE_KEY = 'connect-four-neural-network-v1';
 const FIRST_TRAINING_GAMES = 100;
 const reduceNetworkMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const BROWSER_MODEL_DB = 'neural-game-lab';
+const BROWSER_MODEL_STORE = 'models';
+const BROWSER_MODEL_KEY = 'combined-model';
+
+function openBrowserModelDb() {
+  return new Promise((resolve, reject) => {
+    if (!window.indexedDB) {
+      reject(new Error('IndexedDB is not available in this browser.'));
+      return;
+    }
+    const request = window.indexedDB.open(BROWSER_MODEL_DB, 1);
+    request.onupgradeneeded = () => {
+      const database = request.result;
+      if (!database.objectStoreNames.contains(BROWSER_MODEL_STORE)) {
+        database.createObjectStore(BROWSER_MODEL_STORE);
+      }
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error || new Error('Could not open browser model storage.'));
+  });
+}
+
+async function saveBrowserModel(modelData) {
+  try {
+    const database = await openBrowserModelDb();
+    await new Promise((resolve, reject) => {
+      const transaction = database.transaction(BROWSER_MODEL_STORE, 'readwrite');
+      transaction.objectStore(BROWSER_MODEL_STORE).put(modelData, BROWSER_MODEL_KEY);
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => reject(transaction.error || new Error('Could not save the model in this browser.'));
+      transaction.onabort = () => reject(transaction.error || new Error('Browser model save was aborted.'));
+    });
+    database.close();
+  } catch (error) {
+    console.warn('Could not back up the trained model in this browser:', error);
+  }
+}
+
+async function loadBrowserModel() {
+  try {
+    const database = await openBrowserModelDb();
+    const modelData = await new Promise((resolve, reject) => {
+      const transaction = database.transaction(BROWSER_MODEL_STORE, 'readonly');
+      const request = transaction.objectStore(BROWSER_MODEL_STORE).get(BROWSER_MODEL_KEY);
+      request.onsuccess = () => resolve(request.result || null);
+      request.onerror = () => reject(request.error || new Error('Could not read the browser model backup.'));
+    });
+    database.close();
+    return modelData;
+  } catch (error) {
+    console.warn('Could not read the trained model backup from this browser:', error);
+    return null;
+  }
+}
+
 const boardElement = document.querySelector('#board');
 const columnControls = document.querySelector('#columnControls');
 const chessBoardElement = document.querySelector('#chessBoard');
@@ -51,6 +106,8 @@ let previousSignalActivity = false;
 let pointerGesture = null;
 
 function queueModelSave(modelData) {
+  // Keep a browser-side backup so training survives server restarts or ephemeral hosting.
+  saveBrowserModel(modelData);
   saveQueue = saveQueue.catch(() => {}).then(async () => {
     document.querySelector('#saveStatus').textContent = 'SAVING...';
     const payload = JSON.stringify({ modelData });
@@ -113,7 +170,18 @@ async function loadSavedModel() {
   const response = await fetch('/api/model');
   const result = await response.json();
   if (!response.ok) throw new Error(result.error || 'Could not read the workspace model file.');
-  if (result.modelData) return result.modelData;
+  if (result.modelData) {
+    saveBrowserModel(result.modelData);
+    return result.modelData;
+  }
+
+  // On ephemeral hosts the server file may be gone while this browser still has
+  // the last trained weights. Restore from the browser backup and push it back.
+  const browserModel = await loadBrowserModel();
+  if (browserModel) {
+    try { await queueModelSave(browserModel); } catch (error) { console.warn(error); }
+    return browserModel;
+  }
 
   try {
     const legacyModel = JSON.parse(localStorage.getItem(LEGACY_STORAGE_KEY));
