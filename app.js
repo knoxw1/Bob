@@ -105,17 +105,31 @@ let signalDrainPaths = [];
 let previousSignalActivity = false;
 let pointerGesture = null;
 
+async function gzipText(value) {
+  if (!('CompressionStream' in window)) return null;
+  try {
+    const stream = new Blob([value]).stream().pipeThrough(new CompressionStream('gzip'));
+    return new Uint8Array(await new Response(stream).arrayBuffer());
+  } catch (error) {
+    console.warn('Could not compress model data before upload:', error);
+    return null;
+  }
+}
+
 function queueModelSave(modelData) {
   // Keep a browser-side backup so training survives server restarts or ephemeral hosting.
   saveBrowserModel(modelData);
   saveQueue = saveQueue.catch(() => {}).then(async () => {
     document.querySelector('#saveStatus').textContent = 'SAVING...';
     const payload = JSON.stringify({ modelData });
+    const compressed = await gzipText(payload);
+    const uploadBytes = compressed || new TextEncoder().encode(payload);
+    const useGzip = Boolean(compressed);
     let lastError = null;
     for (let attempt = 0; attempt < 2; attempt += 1) {
       try {
         const chunkSize = 900 * 1024;
-        const total = Math.max(1, Math.ceil(payload.length / chunkSize));
+        const total = Math.max(1, Math.ceil(uploadBytes.length / chunkSize));
         const uploadId = (crypto && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`);
         const concurrency = 4;
         let nextIndex = 0;
@@ -125,14 +139,14 @@ function queueModelSave(modelData) {
             const index = nextIndex++;
             if (index >= total) return;
             if (failure) return;
-            const chunk = payload.slice(index * chunkSize, (index + 1) * chunkSize);
+            const chunk = uploadBytes.slice(index * chunkSize, (index + 1) * chunkSize);
             let response;
             let requestError = null;
             for (let innerAttempt = 0; innerAttempt < 2; innerAttempt += 1) {
               try {
-                response = await fetch(`/api/model?upload=${encodeURIComponent(uploadId)}&index=${index}&total=${total}`, {
+                response = await fetch(`/api/model?upload=${encodeURIComponent(uploadId)}&index=${index}&total=${total}${useGzip ? '&gzip=1' : ''}`, {
                   method: 'PUT',
-                  headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+                  headers: { 'Content-Type': useGzip ? 'application/octet-stream' : 'text/plain; charset=utf-8' },
                   body: chunk,
                 });
                 break;
@@ -1354,10 +1368,13 @@ worker.addEventListener('message', async (event) => {
     document.querySelector('#lossValue').textContent = Number.isFinite(result.loss) ? result.loss.toFixed(3) : '--';
     if (result.visualization) showNetwork(result.visualization, result.type === 'progress' ? `${gameName} SELF-PLAY ${percentage}%` : `${gameName} MATCH UPDATE ${percentage}%`);
     if (result.modelData) {
-      queueModelSave(result.modelData).catch((error) => {
-        document.querySelector('#saveStatus').textContent = 'SAVE FAILED';
-        document.querySelector('#trainingNote').textContent = error.message;
-      });
+      // Keep the UI in sync during training, but persist weights only when a
+      // training run or completed game finishes. Saving the full model on every
+      // checkpoint makes large models take a very long time over the network.
+      // queueModelSave(result.modelData).catch((error) => {
+      //   document.querySelector('#saveStatus').textContent = 'SAVE FAILED';
+      //   document.querySelector('#trainingNote').textContent = error.message;
+      // });
     }
     return;
   }

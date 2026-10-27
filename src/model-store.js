@@ -1,6 +1,7 @@
 import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { randomUUID } from 'node:crypto';
+import { gunzipSync } from 'node:zlib';
 
 export const MODEL_WEIGHT_SHAPES = [[84, 512], [512], [512, 512], [512], [512, 7], [7]];
 export const CHESS_MODEL_WEIGHT_SHAPES = [[836, 512], [512], [512, 512], [512], [512, 4864], [4864]];
@@ -158,15 +159,15 @@ export function createModelStore(filePath) {
       && Number.isInteger(chunkTotal) && chunkTotal > 0;
 
     if (isChunked) {
-      let body = '';
+      const chunks = [];
       let tooLarge = false;
-      req.setEncoding('utf8');
       req.on('data', (chunk) => {
-        if (Buffer.byteLength(body) + Buffer.byteLength(chunk) > MAX_CHUNK_BYTES) {
+        const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+        if (chunks.reduce((size, item) => size + item.length, 0) + buffer.length > MAX_CHUNK_BYTES) {
           tooLarge = true;
-          body = '';
+          chunks.length = 0;
         } else if (!tooLarge) {
-          body += chunk;
+          chunks.push(buffer);
         }
       });
       req.on('end', async () => {
@@ -175,6 +176,7 @@ export function createModelStore(filePath) {
           res.end(JSON.stringify({ error: 'Chunk is too large.' }));
           return;
         }
+        const body = Buffer.concat(chunks);
         let state = uploads.get(uploadId);
         if (!state) {
           state = {
@@ -201,9 +203,18 @@ export function createModelStore(filePath) {
         }
 
         uploads.delete(uploadId);
-        const payload = state.chunks.join('');
+        const useGzip = urlObj.searchParams.get('gzip') === '1';
+        let payloadBuffer = Buffer.concat(state.chunks);
+        if (useGzip) {
+          try { payloadBuffer = gunzipSync(payloadBuffer); }
+          catch (error) {
+            res.statusCode = 400;
+            res.end(JSON.stringify({ error: 'Model data must be valid gzip.' }));
+            return;
+          }
+        }
         try {
-          const { modelData } = JSON.parse(payload || '{}');
+          const { modelData } = JSON.parse(payloadBuffer.toString('utf8') || '{}');
           await writeModel(modelData);
           res.statusCode = 200;
           res.end(JSON.stringify({ saved: true }));
@@ -215,15 +226,16 @@ export function createModelStore(filePath) {
       return;
     }
 
-    let body = '';
+    const bodyChunks = [];
     let tooLarge = false;
-    req.setEncoding('utf8');
     req.on('data', (chunk) => {
-      if (Buffer.byteLength(body) + Buffer.byteLength(chunk) > MAX_BODY_BYTES) {
+      const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+      const currentSize = bodyChunks.reduce((size, item) => size + item.length, 0);
+      if (currentSize + buffer.length > MAX_BODY_BYTES) {
         tooLarge = true;
-        body = '';
+        bodyChunks.length = 0;
       } else if (!tooLarge) {
-        body += chunk;
+        bodyChunks.push(buffer);
       }
     });
     req.on('end', async () => {
@@ -232,8 +244,18 @@ export function createModelStore(filePath) {
         res.end(JSON.stringify({ error: 'Model data is too large.' }));
         return;
       }
+      const useGzip = urlObj.searchParams.get('gzip') === '1';
+      let payloadBuffer = Buffer.concat(bodyChunks);
+      if (useGzip) {
+        try { payloadBuffer = gunzipSync(payloadBuffer); }
+        catch (error) {
+          res.statusCode = 400;
+          res.end(JSON.stringify({ error: 'Model data must be valid gzip.' }));
+          return;
+        }
+      }
       try {
-        const { modelData } = JSON.parse(body || '{}');
+        const { modelData } = JSON.parse(payloadBuffer.toString('utf8') || '{}');
         await writeModel(modelData);
         res.statusCode = 200;
         res.end(JSON.stringify({ saved: true }));
