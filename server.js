@@ -8,6 +8,8 @@ import { encodeModel, validateModelData } from './src/model-binary.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const distDir = path.join(__dirname, 'dist');
+const dataDir = path.join(__dirname, 'data');
+const modelPath = process.env.MODEL_PATH || path.join(__dirname, 'data', 'model.bin');
 const modelDir = path.dirname(modelPath);
 const jsonPath = path.join(modelDir, 'model.json');
 if (!fsSync.existsSync(modelPath) && fsSync.existsSync(jsonPath)) {
@@ -22,8 +24,6 @@ if (!fsSync.existsSync(modelPath) && fsSync.existsSync(jsonPath)) {
   }
 }
 
-const dataDir = path.join(__dirname, 'data');
-const modelPath = process.env.MODEL_PATH || path.join(__dirname, 'data', 'model.bin');
 const modelStore = createModelStore(modelPath);
 
 const MIME_TYPES = {
