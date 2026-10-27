@@ -2,12 +2,18 @@ import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { gunzipSync } from 'node:zlib';
+import {
+  CHESS_MODEL_WEIGHT_SHAPES,
+  MODEL_WEIGHT_SHAPES,
+  decodeModel,
+  encodeModel,
+  validateModelData,
+} from './model-binary.js';
 
-export const MODEL_WEIGHT_SHAPES = [[84, 512], [512], [512, 512], [512], [512, 7], [7]];
-export const CHESS_MODEL_WEIGHT_SHAPES = [[836, 512], [512], [512, 512], [512], [512, 4864], [4864]];
+export { CHESS_MODEL_WEIGHT_SHAPES, MODEL_WEIGHT_SHAPES, validateModelData };
+const uploads = new Map();
 const MAX_BODY_BYTES = 256_000_000;
 const MAX_CHUNK_BYTES = 4_000_000;
-const uploads = new Map();
 
 setInterval(() => {
   const cutoff = Date.now() - 5 * 60 * 1000;
@@ -16,69 +22,11 @@ setInterval(() => {
   }
 }, 60 * 1000).unref?.();
 
-function validateWeights(weights, shapes, label) {
-  if (!Array.isArray(weights) || weights.length !== shapes.length) {
-    throw new Error(`${label} neural network weight count does not match this model.`);
-  }
-
-  for (let index = 0; index < shapes.length; index += 1) {
-    const weight = weights[index];
-    const expectedShape = shapes[index];
-    const expectedSize = expectedShape.reduce((product, dimension) => product * dimension, 1);
-    if (
-      !weight || !Array.isArray(weight.shape)
-      || weight.shape.length !== expectedShape.length
-      || weight.shape.some((dimension, axis) => dimension !== expectedShape[axis])
-      || !Array.isArray(weight.values) || weight.values.length !== expectedSize
-      || weight.values.some((value) => typeof value !== 'number' || !Number.isFinite(value))
-    ) {
-      throw new Error(`${label} neural network layer ${index + 1} has invalid weights.`);
-    }
-  }
-}
-
-function validateChessModel(chess) {
-  if (!chess || chess.version !== 1) throw new Error('Invalid chess model data.');
-  validateWeights(chess.weights, CHESS_MODEL_WEIGHT_SHAPES, 'Chess');
-  for (const field of ['trainingGames', 'observedGames']) {
-    if (chess[field] !== undefined && (!Number.isSafeInteger(chess[field]) || chess[field] < 0)) {
-      throw new Error(`Invalid chess ${field} value.`);
-    }
-  }
-  return {
-    version: 1,
-    trainingGames: chess.trainingGames || 0,
-    observedGames: chess.observedGames || 0,
-    weights: chess.weights,
-  };
-}
-
-export function validateModelData(modelData) {
-  if (!modelData || modelData.version !== 1 || !Array.isArray(modelData.weights)) {
-    throw new Error('Invalid neural network model data.');
-  }
-  validateWeights(modelData.weights, MODEL_WEIGHT_SHAPES, 'Connect Four');
-
-  for (const field of ['trainingGames', 'observedGames']) {
-    if (modelData[field] !== undefined && (!Number.isSafeInteger(modelData[field]) || modelData[field] < 0)) {
-      throw new Error(`Invalid ${field} value.`);
-    }
-  }
-
-  const validated = {
-    version: 1,
-    trainingGames: modelData.trainingGames || 0,
-    observedGames: modelData.observedGames || 0,
-    weights: modelData.weights,
-  };
-  if (modelData.chess !== undefined) validated.chess = validateChessModel(modelData.chess);
-  return validated;
-}
-
 export function createModelStore(filePath) {
   async function readModel() {
     try {
-      return validateModelData(JSON.parse(await readFile(filePath, 'utf8')));
+      const buffer = await readFile(filePath);
+      return decodeModel(buffer);
     } catch (error) {
       if (error.code === 'ENOENT') return null;
       // Treat unreadable or outdated/incompatible model files as "no saved model"
@@ -92,7 +40,7 @@ export function createModelStore(filePath) {
     const temporaryPath = `${filePath}.${randomUUID()}.tmp`;
     try {
       await mkdir(dirname(filePath), { recursive: true });
-      await writeFile(temporaryPath, JSON.stringify(validModel), { mode: 0o600, flag: 'wx' });
+      await writeFile(temporaryPath, encodeModel(validModel), { mode: 0o600, flag: 'wx' });
       await rename(temporaryPath, filePath);
     } catch (error) {
       await rm(temporaryPath, { force: true }).catch(() => {});
@@ -110,16 +58,23 @@ export function createModelStore(filePath) {
       next();
       return;
     }
-    res.setHeader('Content-Type', 'application/json; charset=utf-8');
     res.setHeader('Cache-Control', 'no-store');
 
     if (req.method === 'GET') {
       try {
+        const modelData = await readModel();
+        if (!modelData) {
+          res.statusCode = 204;
+          res.end();
+          return;
+        }
+        const bytes = encodeModel(modelData);
+        res.setHeader('Content-Type', 'application/octet-stream');
         res.statusCode = 200;
-        res.end(JSON.stringify({ modelData: await readModel() }));
+        res.end(bytes);
       } catch {
         res.statusCode = 500;
-        res.end(JSON.stringify({ error: 'The saved model file is invalid or unreadable.' }));
+        res.end();
       }
       return;
     }
@@ -214,13 +169,13 @@ export function createModelStore(filePath) {
           }
         }
         try {
-          const { modelData } = JSON.parse(payloadBuffer.toString('utf8') || '{}');
+          const modelData = decodeModel(payloadBuffer);
           await writeModel(modelData);
           res.statusCode = 200;
           res.end(JSON.stringify({ saved: true }));
         } catch (error) {
-          res.statusCode = error instanceof SyntaxError ? 400 : 422;
-          res.end(JSON.stringify({ error: error instanceof SyntaxError ? 'Model data must be valid JSON.' : error.message }));
+          res.statusCode = 400;
+          res.end(JSON.stringify({ error: error.message || 'Invalid model data.' }));
         }
       });
       return;
@@ -255,13 +210,13 @@ export function createModelStore(filePath) {
         }
       }
       try {
-        const { modelData } = JSON.parse(payloadBuffer.toString('utf8') || '{}');
+        const modelData = decodeModel(payloadBuffer);
         await writeModel(modelData);
         res.statusCode = 200;
         res.end(JSON.stringify({ saved: true }));
       } catch (error) {
-        res.statusCode = error instanceof SyntaxError ? 400 : 422;
-        res.end(JSON.stringify({ error: error instanceof SyntaxError ? 'Model data must be valid JSON.' : error.message }));
+        res.statusCode = 400;
+        res.end(JSON.stringify({ error: error.message || 'Invalid model data.' }));
       }
     });
   };

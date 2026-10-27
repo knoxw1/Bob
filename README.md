@@ -19,9 +19,9 @@ On ChromeOS or Microsoft Edge, install the site as a standalone app from the bro
 
 ## Where learning is saved
 
-The Codespace's `data/model.json` file is the source of truth for the network weights. The local Vite API loads it on startup and atomically writes updates. Self-play saves checkpoints every 50 games and at the end of each training run. Each completed player-vs-AI game also updates and saves the weights. The file is tracked in Git, so trained weights can move between this Codespace, GitHub, and Render; every training run adds to it.
+The Codespace's `data/model.bin` file is the source of truth for the network weights. The local Vite API loads it on startup and atomically writes updates. Self-play saves checkpoints every 50 games and at the end of each training run. Each completed player-vs-AI game also updates and saves the weights. The file is tracked in Git, so trained weights can move between this Codespace, GitHub, and Render; every training run adds to it.
 
-The browser displays a live network diagram using sampled weights and activations from the currently selected policy. Each policy is stored under the shared `data/model.json` file, so training one preserves the other. Expand the diagram to full screen, zoom or drag to pan, and hover or click a neuron or connection to inspect it.
+The browser displays a live network diagram using sampled weights and activations from the currently selected policy. Each policy is stored under the shared `data/model.bin` file, so training one preserves the other. Expand the diagram to full screen, zoom or drag to pan, and hover or click a neuron or connection to inspect it.
 
 ## Notes
 
@@ -47,9 +47,9 @@ This repository includes a production server (`server.js`) and a Render blueprin
 Notes for Render:
 - The production server listens on `process.env.PORT` and binds to `0.0.0.0`, as Render requires.
 - `/healthz` is available for Render health checks.
-- Learned weights are stored in `data/model.json` (or `MODEL_PATH`). The app saves automatically after checkpoints, completed matches, and resets. On Render's free tier the filesystem is ephemeral, so weights can be lost on restart/redeploy. Two ways to keep them:
-  - Add a Render Disk (paid instances) mounted at `/var/data` and set `MODEL_PATH=/var/data/model.json`.
+- Learned weights are stored in `data/model.bin` (or `MODEL_PATH`). The app saves automatically after checkpoints, completed matches, and resets. On Render's free tier the filesystem is ephemeral, so weights can be lost on restart/redeploy. Two ways to keep them:
+  - Add a Render Disk (paid instances) mounted at `/var/data` and set `MODEL_PATH=/var/data/model.bin`.
   - The app also keeps a browser-side IndexedDB backup. If the server copy is missing, the same browser restores it and pushes it back to the server.
-- To ship an already-trained local `data/model.json` to Render, upload it after deploy with `curl -X PUT https://YOUR-APP.onrender.com/api/model -H 'Content-Type: application/json' --data-binary @<(node -e "process.stdout.write(JSON.stringify({modelData: require('./data/model.json')}))")` or include `data/model.json` in the deployed repository. The server uses that file on startup.
+- To ship an already-trained local `data/model.bin` to Render, upload it after deploy with `curl -X PUT https://YOUR-APP.onrender.com/api/model -H 'Content-Type: application/octet-stream' --data-binary @data/model.bin` or include `data/model.bin` in the deployed repository. The server uses that file on startup.
 - The Chess.com dataset at `data/chesscom-top-games.json` is included in the build and is available at `/data/chesscom-top-games.json`.
 - The free tier may sleep after inactivity; the first visit after sleep can take a moment to wake up.

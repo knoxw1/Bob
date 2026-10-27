@@ -2,6 +2,7 @@ import { ConnectFourAgent } from './src/agent.js';
 import { ChessAgent, chessMoveIndex, encodeChessState } from './src/chess-agent.js';
 import { COLS, ROWS, createBoard, drop, encodeState, getCell, isWinningMove, legalMoves, playersForOpening } from './src/game.js';
 import { Chess } from 'chess.js';
+import { decodeModel, encodeModel } from './src/model-binary.js';
 
 const LEGACY_STORAGE_KEY = 'connect-four-neural-network-v1';
 const FIRST_TRAINING_GAMES = 100;
@@ -105,7 +106,7 @@ let signalDrainPaths = [];
 let previousSignalActivity = false;
 let pointerGesture = null;
 
-async function gzipText(value) {
+async function gzipBytes(value) {
   if (!('CompressionStream' in window)) return null;
   try {
     const stream = new Blob([value]).stream().pipeThrough(new CompressionStream('gzip'));
@@ -121,9 +122,9 @@ function queueModelSave(modelData) {
   saveBrowserModel(modelData);
   saveQueue = saveQueue.catch(() => {}).then(async () => {
     document.querySelector('#saveStatus').textContent = 'SAVING...';
-    const payload = JSON.stringify({ modelData });
-    const compressed = await gzipText(payload);
-    const uploadBytes = compressed || new TextEncoder().encode(payload);
+    const encoded = encodeModel(modelData);
+    const compressed = await gzipBytes(encoded);
+    const uploadBytes = compressed || encoded;
     const useGzip = Boolean(compressed);
     let lastError = null;
     for (let attempt = 0; attempt < 2; attempt += 1) {
@@ -182,11 +183,18 @@ function queueModelSave(modelData) {
 
 async function loadSavedModel() {
   const response = await fetch('/api/model');
-  const result = await response.json();
-  if (!response.ok) throw new Error(result.error || 'Could not read the workspace model file.');
-  if (result.modelData) {
-    saveBrowserModel(result.modelData);
-    return result.modelData;
+  if (response.status === 204) {
+    // Fall through to browser backup below.
+  } else if (!response.ok) {
+    throw new Error('Could not read the workspace model file.');
+  } else {
+    try {
+      const modelData = decodeModel(new Uint8Array(await response.arrayBuffer()));
+      saveBrowserModel(modelData);
+      return modelData;
+    } catch (error) {
+      console.warn('Could not decode the saved model:', error);
+    }
   }
 
   // On ephemeral hosts the server file may be gone while this browser still has

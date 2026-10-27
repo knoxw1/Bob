@@ -3,11 +3,27 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createModelStore } from './src/model-store.js';
+import fsSync from 'node:fs';
+import { encodeModel, validateModelData } from './src/model-binary.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const distDir = path.join(__dirname, 'dist');
+const modelDir = path.dirname(modelPath);
+const jsonPath = path.join(modelDir, 'model.json');
+if (!fsSync.existsSync(modelPath) && fsSync.existsSync(jsonPath)) {
+  try {
+    const json = JSON.parse(fsSync.readFileSync(jsonPath, 'utf8'));
+    const valid = validateModelData(json);
+    fsSync.mkdirSync(modelDir, { recursive: true });
+    fsSync.writeFileSync(modelPath, encodeModel(valid));
+    console.log('Migrated model.json to binary model store.');
+  } catch (error) {
+    console.warn('Could not migrate model.json:', error.message);
+  }
+}
+
 const dataDir = path.join(__dirname, 'data');
-const modelPath = process.env.MODEL_PATH || path.join(__dirname, 'data', 'model.json');
+const modelPath = process.env.MODEL_PATH || path.join(__dirname, 'data', 'model.bin');
 const modelStore = createModelStore(modelPath);
 
 const MIME_TYPES = {

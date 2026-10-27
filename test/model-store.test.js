@@ -5,6 +5,7 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { CHESS_MODEL_WEIGHT_SHAPES, createModelStore, MODEL_WEIGHT_SHAPES } from '../src/model-store.js';
+import { decodeModel, encodeModel } from '../src/model-binary.js';
 
 function emptyModel() {
   return {
@@ -29,7 +30,7 @@ function emptyModel() {
 
 test('local model endpoint loads and atomically stores network weights on disk', async (context) => {
   const directory = await mkdtemp(join(tmpdir(), 'connect-four-model-'));
-  const modelPath = join(directory, 'data', 'model.json');
+  const modelPath = join(directory, 'data', 'model.bin');
   const middleware = createModelStore(modelPath);
   const server = createServer((req, res) => middleware(req, res, () => {
     res.writeHead(404).end();
@@ -42,26 +43,31 @@ test('local model endpoint loads and atomically stores network weights on disk',
   });
 
   const url = `http://127.0.0.1:${server.address().port}/api/model`;
-  assert.deepEqual(await fetch(url).then((response) => response.json()), { modelData: null });
+  const initial = await fetch(url);
+  assert.equal(initial.status, 204);
 
   const modelData = emptyModel();
   const saved = await fetch(url, {
     method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ modelData }),
+    headers: { 'Content-Type': 'application/octet-stream' },
+    body: encodeModel(modelData),
   });
   assert.equal(saved.status, 200);
-  assert.deepEqual(await fetch(url).then((response) => response.json()), { modelData });
-  assert.deepEqual(JSON.parse(await readFile(modelPath, 'utf8')), modelData);
+
+  const loadedResponse = await fetch(url);
+  assert.equal(loadedResponse.status, 200);
+  const loaded = decodeModel(new Uint8Array(await loadedResponse.arrayBuffer()));
+  assert.deepEqual(loaded, modelData);
+  assert.deepEqual(decodeModel(await readFile(modelPath)), modelData);
 
   const invalid = await fetch(url, {
     method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ modelData: { ...modelData, weights: [] } }),
+    headers: { 'Content-Type': 'application/octet-stream' },
+    body: new Uint8Array([1, 2, 3, 4]),
   });
-  assert.equal(invalid.status, 422);
+  assert.equal(invalid.status, 400);
 
   const deleted = await fetch(url, { method: 'DELETE' });
   assert.equal(deleted.status, 200);
-  assert.deepEqual(await fetch(url).then((response) => response.json()), { modelData: null });
+  assert.equal((await fetch(url)).status, 204);
 });
