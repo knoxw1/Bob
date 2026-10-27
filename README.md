@@ -31,3 +31,22 @@ These are small learning demos, not perfect game engines. Chess uses legal moves
 npm test
 npm run build
 ```
+## Deploy to Render
+
+This repository includes a production server (`server.js`) and a Render blueprint (`render.yaml`), so it can be deployed as a Render Web Service.
+
+1. Push this repository to GitHub (Render deploys from a Git repository).
+2. In Render, choose **New +** -> **Blueprint** (or **Web Service**) and select this repository.
+3. If Render asks for commands, use:
+   - Build command: `npm install && npm run build`
+   - Start command: `npm start`
+4. Use the Node 20 environment (the blueprint sets `NODE_VERSION=20`).
+5. Deploy. Render will run the Vite build, then start `node server.js`.
+6. Render provides a URL such as `https://neural-game-lab.onrender.com`. Open that URL to play chess and Connect Four against the AI.
+
+Notes for Render:
+- The production server listens on `process.env.PORT` and binds to `0.0.0.0`, as Render requires.
+- `/healthz` is available for Render health checks.
+- Learned weights are stored in `data/model.json`. Render's filesystem is ephemeral, so weights reset when the service restarts or redeploys. To persist them, add a Render Disk mounted in the project directory and set `MODEL_PATH` to a file on that disk (for example `/var/data/model.json`).
+- The Chess.com dataset at `data/chesscom-top-games.json` is included in the build and is available at `/data/chesscom-top-games.json`.
+- The free tier may sleep after inactivity; the first visit after sleep can take a moment to wake up.
