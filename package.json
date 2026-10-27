@@ -1,12 +1,24 @@
 {
-  "name": "cohere-proxy",
+  "name": "local-neural-game-lab",
   "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Local Connect Four and chess with separate self-learning neural policies.",
   "scripts": {
-    "start": "node server.js"
+    "build": "vite build",
+    "dev": "vite --host 127.0.0.1",
+    "start": "vite --host 127.0.0.1",
+    "scrape:chesscom": "node scripts/scrape-chesscom.mjs",
+    "test": "node --test"
   },
   "dependencies": {
-    "express": "^4.17.1",
-    "cors": "^2.8.5",
-    "node-fetch": "^2.6.7"
+    "@tensorflow/tfjs": "^4.22.0",
+    "chess.js": "^1.4.0"
+  },
+  "devDependencies": {
+    "vite": "^6.4.1"
+  },
+  "engines": {
+    "node": ">=20"
   }
 }

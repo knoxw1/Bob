@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#f1efe5">
+    <link rel="manifest" href="/manifest.webmanifest">
+    <link rel="icon" href="/connect-four-icon.svg" type="image/svg+xml">
+    <title>Neural Game Lab</title>
+    <link rel="stylesheet" href="/styles.css">
+    <script type="module" src="/app.js"></script>
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="topbar">
+        <a class="brand" href="/" aria-label="Neural Game Lab home">
+          <span class="brand-mark" aria-hidden="true">♟</span>
+          <span><strong>NEURAL GAME LAB</strong><small>LOCAL GAME LEARNING</small></span>
+        </a>
+        <div class="local-status"><span class="status-light"></span> LOCAL / NO CLOUD</div>
+      </header>
+
+      <section class="title-row">
+        <div>
+          <p class="kicker" id="gameKicker">CHESS / DEEP Q-LEARNING</p>
+          <h1 id="gameTitle">Play the chess learner.</h1>
+        </div>
+        <div class="title-actions">
+          <p class="title-note">One local AI for chess and Connect Four.<br>Weights are saved in this workspace.</p>
+          <div class="game-switch" role="tablist" aria-label="Choose a game">
+            <button type="button" data-game-mode="connect-four" role="tab" aria-selected="false">Connect Four</button>
+            <button type="button" class="selected" data-game-mode="chess" role="tab" aria-selected="true">Chess</button>
+          </div>
+        </div>
+      </section>
+
+      <div class="main-grid">
+        <section class="game-panel" id="connectFourPanel" aria-label="Connect Four game" hidden>
+          <div class="game-bar">
+            <div class="turn-indicator"><span class="piece-swatch human-swatch" id="turnSwatch"></span><span id="gameMessage" aria-live="polite">Loading local neural network</span></div>
+            <button class="text-button" id="newGameButton" type="button">New game</button>
+          </div>
+          <div class="starter-row">
+            <span>FIRST MOVE</span>
+            <div class="starter-control" role="group" aria-label="Choose who starts the game">
+              <button type="button" class="selected" data-starter="human" aria-pressed="true">You start</button>
+              <button type="button" data-starter="learner" aria-pressed="false">Learner starts</button>
+            </div>
+          </div>
+          <div class="column-controls" id="columnControls" aria-label="Choose a column"></div>
+          <div class="board-frame">
+            <div class="board" id="board" role="grid" aria-label="Connect Four board"></div>
+          </div>
+          <div class="score-strip">
+            <div><span class="score-disc human-swatch"></span><span>YOU</span><strong id="humanWins">0</strong></div>
+            <div><span class="score-disc learner-swatch"></span><span>LEARNER</span><strong id="learnerWins">0</strong></div>
+            <div><span class="score-disc draw-swatch"></span><span>DRAWS</span><strong id="draws">0</strong></div>
+          </div>
+        </section>
+
+        <section class="game-panel chess-panel" id="chessPanel" aria-label="Chess game">
+          <div class="game-bar">
+            <div class="turn-indicator"><span class="piece-swatch human-swatch" id="chessTurnSwatch"></span><span id="chessGameMessage" aria-live="polite">Loading chess policy</span></div>
+            <button class="text-button" id="newChessGameButton" type="button">New game</button>
+          </div>
+          <div class="starter-row">
+            <span>PLAY AS</span>
+            <div class="starter-control" role="group" aria-label="Choose chess color">
+              <button type="button" class="selected" data-chess-side="w" aria-pressed="true">White</button>
+              <button type="button" data-chess-side="b" aria-pressed="false">Black</button>
+            </div>
+          </div>
+          <div class="chess-board-frame">
+            <div class="chess-board" id="chessBoard" role="grid" aria-label="Chess board"></div>
+          </div>
+          <div class="score-strip chess-score-strip">
+            <div><span class="score-disc human-swatch"></span><span>YOU</span><strong id="chessHumanWins">0</strong></div>
+            <div><span class="score-disc learner-swatch"></span><span>LEARNER</span><strong id="chessLearnerWins">0</strong></div>
+            <div><span class="score-disc draw-swatch"></span><span>DRAWS</span><strong id="chessDraws">0</strong></div>
+          </div>
+          <div class="chess-footer"><span id="chessMoveCount">0 moves</span><span id="chessOpening">Initial position</span></div>
+          <dialog class="promotion-dialog" id="promotionDialog" aria-labelledby="promotionHeading">
+            <form method="dialog">
+              <p class="kicker">PAWN PROMOTION</p>
+              <h2 id="promotionHeading">Choose a piece</h2>
+              <div class="promotion-options">
+                <button type="button" data-promotion="q" aria-label="Promote to queen"></button>
+                <button type="button" data-promotion="r" aria-label="Promote to rook"></button>
+                <button type="button" data-promotion="b" aria-label="Promote to bishop"></button>
+                <button type="button" data-promotion="n" aria-label="Promote to knight"></button>
+              </div>
+              <button class="text-button promotion-cancel" value="cancel">Cancel</button>
+            </form>
+          </dialog>
+        </section>
+
+        <aside class="learning-panel">
+          <div class="panel-heading">
+            <div><p class="kicker">01 / SELF-PLAY TRAINING</p><h2>Teach the network</h2></div>
+            <span class="brain-stamp" aria-hidden="true">NN</span>
+          </div>
+          <p class="panel-copy" id="networkDescription">The Connect Four policy maps each board to seven move scores. Self-play adjusts its weights after wins and losses; a replay buffer and target network steady the learning.</p>
+
+          <div class="network-visual" aria-label="Live neural network activity">
+            <div class="network-visual-head"><span id="networkActivity">WAITING FOR BOARD</span><span>LIVE WEIGHTS / ACTIVATIONS</span></div>
+            <div class="network-toolbar">
+              <div class="network-mode" role="group" aria-label="Network display mode">
+                <button type="button" class="selected" data-network-mode="weights" aria-pressed="true">Weights</button>
+                <button type="button" data-network-mode="signals" aria-pressed="false">Signals</button>
+              </div>
+              <div class="network-zoom" role="group" aria-label="Network zoom controls">
+                <button type="button" id="zoomOut" aria-label="Zoom out" title="Zoom out">-</button>
+                <span id="zoomReadout">100%</span>
+                <button type="button" id="zoomIn" aria-label="Zoom in" title="Zoom in">+</button>
+                <button type="button" id="fitNetwork" aria-label="Reset zoom and pan" title="Reset view">Fit</button>
+                <button type="button" id="expandNetwork" aria-label="Expand neural network" title="Expand neural network">Expand</button>
+              </div>
+            </div>
+            <div class="network-stage">
+              <canvas id="networkCanvas" tabindex="0" aria-label="Interactive neural network with hoverable and selectable neurons"></canvas>
+              <div id="networkTooltip" class="network-tooltip" hidden></div>
+            </div>
+            <div class="network-visual-legend"><span><i class="edge-positive"></i>Positive weight</span><span><i class="edge-negative"></i>Negative weight</span><span><i class="node-active"></i>Active neuron</span><span class="sample-note">All neurons / strongest connections</span></div>
+            <div class="neuron-detail" id="neuronDetail" aria-live="polite"><strong>NETWORK OVERVIEW</strong><span>Choose any neuron to inspect its current activation and strongest connection.</span></div>
+          </div>
+
+          <div class="learning-meter">
+            <div class="meter-label"><span>NETWORK STATUS</span><strong id="trainingStatus">Starting local network</strong></div>
+            <div class="progress-track" role="progressbar" aria-label="Training progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="progressBar"></span></div>
+            <div class="meter-meta"><span><b id="gamesLearned">0</b> games learned</span><span><b id="replayCount">0</b> replay positions</span></div>
+          </div>
+
+          <label class="games-label" for="gamesInput">Additional self-play games</label>
+          <div class="training-controls">
+            <input id="gamesInput" type="number" min="100" max="10000" step="100" value="1000" aria-label="Number of self-play games">
+            <button id="trainButton" type="button" disabled>Train locally</button>
+          </div>
+            <button id=learnChessComButton type=button class=text-button>Learn from Chess.com top games</button>
+          <p class="training-note" id="trainingNote">First training starts automatically. The game pauses while the local worker trains.</p>
+
+          <div class="network-card">
+            <div class="network-top"><span>NEURAL NETWORK</span><span class="local-save" id="saveStatus">WORKSPACE FILE</span></div>
+            <div class="network-shape"><span>BOARD</span><b></b><span id="networkShape">836 - 512 - 512 - 4864</span><b></b><span>MOVES</span></div>
+            <div class="network-stats"><span>LAST TRAINING LOSS <strong id="lossValue">--</strong></span><button class="reset-button" id="resetButton" type="button">Reset weights</button></div>
+            <p class="model-path">data/model.json - updated during training and after each match</p>
+          </div>
+
+          <div class="legend"><span><i class="human-swatch"></i>You</span><span><i class="learner-swatch"></i>Neural AI</span></div>
+        </aside>
+      </div>
+
+      <footer class="footer-note"><span>OFFLINE LEARNING</span><span>TENSORFLOW.JS / CPU</span><span>WEIGHTS STORED IN THIS BROWSER</span></footer>
+    </main>
+  </body>
+</html>

@@ -1,0 +1,19 @@
+{
+  "id": "/",
+  "name": "Neural Game Lab",
+  "short_name": "Neural Games",
+  "description": "Local Connect Four and chess with interactive self-learning neural policies.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#060a14",
+  "theme_color": "#060a14",
+  "icons": [
+    {
+      "src": "/connect-four-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

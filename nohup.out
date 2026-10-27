@@ -1,0 +1,2 @@
+bash: line 1: 10462 Hangup                  CHESSCOM_MAX_PLAYERS=10 CHESSCOM_GAMES_PER_PLAYER=5 npm run scrape:chesscom > /tmp/scrape.log 2>&1
+bash: line 1: 16875 Hangup                  npm run scrape:chesscom > /tmp/scrape-full.log 2>&1
