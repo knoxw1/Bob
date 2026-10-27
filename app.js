@@ -128,7 +128,7 @@ function queueModelSave(modelData) {
     let lastError = null;
     for (let attempt = 0; attempt < 2; attempt += 1) {
       try {
-        const chunkSize = 900 * 1024;
+        const chunkSize = 3.5 * 1024 * 1024;
         const total = Math.max(1, Math.ceil(uploadBytes.length / chunkSize));
         const uploadId = (crypto && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`);
         const concurrency = 4;

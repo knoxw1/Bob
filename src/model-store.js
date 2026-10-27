@@ -6,7 +6,7 @@ import { gunzipSync } from 'node:zlib';
 export const MODEL_WEIGHT_SHAPES = [[84, 512], [512], [512, 512], [512], [512, 7], [7]];
 export const CHESS_MODEL_WEIGHT_SHAPES = [[836, 512], [512], [512, 512], [512], [512, 4864], [4864]];
 const MAX_BODY_BYTES = 256_000_000;
-const MAX_CHUNK_BYTES = 1_000_000;
+const MAX_CHUNK_BYTES = 4_000_000;
 const uploads = new Map();
 
 setInterval(() => {

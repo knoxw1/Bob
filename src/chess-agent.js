@@ -455,7 +455,7 @@ export class ChessAgent {
   async exportModel() {
     const weights = this.model.getWeights().map((tensor) => tensor.clone());
     const savedWeights = await Promise.all(weights.map(async (weight) => {
-      const values = Array.from(await weight.data());
+      const values = Array.from(await weight.data()).map((value) => Math.round(value * 1e6) / 1e6);
       const shape = [...weight.shape];
       weight.dispose();
       return {
