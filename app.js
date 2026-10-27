@@ -182,19 +182,29 @@ function queueModelSave(modelData) {
 }
 
 async function loadSavedModel() {
-  const response = await fetch('/api/model');
-  if (response.status === 204) {
-    // Fall through to browser backup below.
-  } else if (!response.ok) {
-    throw new Error('Could not read the workspace model file.');
-  } else {
+  let serverModel = null;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
     try {
-      const modelData = decodeModel(new Uint8Array(await response.arrayBuffer()));
-      saveBrowserModel(modelData);
-      return modelData;
+      const response = await fetch('/api/model');
+      if (response.status === 204) {
+        serverModel = null;
+        break;
+      }
+      if (!response.ok) throw new Error('Could not read the workspace model file.');
+      serverModel = decodeModel(new Uint8Array(await response.arrayBuffer()));
+      break;
     } catch (error) {
-      console.warn('Could not decode the saved model:', error);
+      if (attempt === 2) {
+        console.warn('Could not load the workspace model:', error);
+      } else {
+        await new Promise((resolve) => setTimeout(resolve, 1000 * (attempt + 1)));
+      }
     }
+  }
+
+  if (serverModel) {
+    saveBrowserModel(serverModel);
+    return serverModel;
   }
 
   // On ephemeral hosts the server file may be gone while this browser still has
@@ -1195,7 +1205,7 @@ function selectGameMode(mode) {
     : agent?.trainingGames ? 'Network ready' : 'First self-play session';
   document.querySelector('#trainingNote').textContent = isChess
     ? 'Chess has its own local policy under the same AI. Play a game or run chess self-play to teach it.'
-    : 'Self-play weights are saved alongside chess learning in data/model.json.';
+    : 'Self-play weights are saved alongside chess learning in data/model.bin.';
   document.querySelector('#resetButton').textContent = isChess ? 'Reset chess policy' : 'Reset weights';
   updateModelStatus();
   updateScore();
@@ -1424,9 +1434,9 @@ worker.addEventListener('message', async (event) => {
     document.querySelector('#progressBar').style.width = '100%';
     document.querySelector('[role="progressbar"]').setAttribute('aria-valuenow', '100');
     if (result.type === 'complete' && document.querySelector('#saveStatus').textContent !== 'SAVE FAILED') {
-      document.querySelector('#trainingNote').textContent = 'Both game policies are saved together in data/model.json in this workspace.';
+      document.querySelector('#trainingNote').textContent = 'Both game policies are saved together in data/model.bin in this workspace.';
     } else if (document.querySelector('#saveStatus').textContent !== 'SAVE FAILED') {
-      document.querySelector('#trainingNote').textContent = 'Your completed match updated the network saved in data/model.json.';
+      document.querySelector('#trainingNote').textContent = 'Your completed match updated the network saved in data/model.bin.';
     }
     drawBoard();
     renderChessBoard();
@@ -1501,7 +1511,7 @@ loadSavedModel().then(async (savedModel) => {
   if (gameMode === 'chess') {
     document.querySelector('#trainingStatus').textContent = 'Network ready';
     document.querySelector('#trainingNote').textContent = chessAgent.trainingGames > 0
-      ? 'Loaded weights from data/model.json in this workspace.'
+      ? 'Loaded weights from data/model.bin in this workspace.'
       : 'Run self-play to teach the chess policy.';
     document.querySelector('#progressBar').style.width = '100%';
     document.querySelector('[role="progressbar"]').setAttribute('aria-valuenow', '100');
@@ -1514,7 +1524,7 @@ loadSavedModel().then(async (savedModel) => {
     setMessage('Your turn');
   } else {
     document.querySelector('#trainingStatus').textContent = 'Network ready';
-    document.querySelector('#trainingNote').textContent = 'Loaded weights from data/model.json in this workspace.';
+    document.querySelector('#trainingNote').textContent = 'Loaded weights from data/model.bin in this workspace.';
     document.querySelector('#progressBar').style.width = '100%';
     document.querySelector('[role="progressbar"]').setAttribute('aria-valuenow', '100');
     setMessage('Your turn');
