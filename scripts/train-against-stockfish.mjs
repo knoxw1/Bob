@@ -113,5 +113,3 @@ console.log(`Saved trained chess model to ${modelPath}`);
 
 engine.terminate?.();
 agent.dispose?.();
-EOF
-echo written
