@@ -258,16 +258,19 @@ export class ConnectFourAgent {
     }));
     const firstLayer = Array.from(hiddenOne);
     const secondLayer = Array.from(hiddenTwo);
+    const thirdLayer = Array.from(hiddenThree);
 
     return {
-      layerLabels: ['BOARD / 84', 'HIDDEN / 512', 'HIDDEN / 512', 'MOVES / 7'],
+      layerLabels: ['BOARD / 84', 'HIDDEN / 512', 'HIDDEN / 512', 'HIDDEN / 512', 'MOVES / 7'],
       inputs,
       hiddenOne: firstLayer,
       hiddenTwo: secondLayer,
+      hiddenThree: thirdLayer,
       outputs: Array.from(outputs),
       edges: {
         inputHidden: makeEdges(inputIndices, hiddenIndices, kernels[0], 512, 5),
         hiddenHidden: makeEdges(hiddenIndices, hiddenIndices, kernels[1], 512, 5),
+        hiddenHidden2: makeEdges(hiddenIndices, hiddenIndices, kernels[2], 512, 5),
         hiddenOutput: makeEdges(hiddenIndices, Array.from({ length: COLS }, (_, index) => index), kernels[3], COLS, COLS),
       },
     };

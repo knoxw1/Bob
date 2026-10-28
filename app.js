@@ -343,7 +343,7 @@ function drawNetworkFrame(forceComplete = false) {
 
   const top = 48;
   const bottom = 36;
-  const xs = [0.105, 0.37, 0.635, 0.89].map((fraction) => width * fraction);
+  const xs = [0.08, 0.29, 0.5, 0.71, 0.92].map((fraction) => width * fraction);
   const drift = reduceNetworkMotion ? 0 : 1;
   const layers = getNetworkLayers(currentVisualization);
   const oldLayers = previousVisualization ? getNetworkLayers(previousVisualization) : layers;
@@ -382,6 +382,7 @@ function drawNetworkFrame(forceComplete = false) {
   const edgeGroups = [
     [currentVisualization.edges.inputHidden, previousVisualization?.edges.inputHidden],
     [currentVisualization.edges.hiddenHidden, previousVisualization?.edges.hiddenHidden],
+    [currentVisualization.edges.hiddenHidden2, previousVisualization?.edges.hiddenHidden2],
     [currentVisualization.edges.hiddenOutput, previousVisualization?.edges.hiddenOutput],
   ];
   const nextNodes = [];
@@ -645,6 +646,7 @@ function describeNeuron(node) {
   const groups = [
     currentVisualization.edges.inputHidden,
     currentVisualization.edges.hiddenHidden,
+    currentVisualization.edges.hiddenHidden2,
     currentVisualization.edges.hiddenOutput,
   ];
   const connected = [];
@@ -1158,7 +1160,7 @@ function updateModelStatus() {
   if (!selectedAgent) return;
   completedGames = selectedAgent.trainingGames + selectedAgent.observedGames;
   document.querySelector('#gamesLearned').textContent = completedGames.toLocaleString();
-  document.querySelector('#networkShape').textContent = gameMode === 'chess' ? '836 - 512 - 512 - 4864' : '84 - 512 - 512 - 7';
+  document.querySelector('#networkShape').textContent = gameMode === 'chess' ? '836 - 512 - 512 - 512 - 4864' : '84 - 512 - 512 - 512 - 7';
   document.querySelector('#replayCount').textContent = selectedAgent.replay.length.toLocaleString();
   document.querySelector('#resetButton').disabled = training || learningGame || !agent || !chessAgent;
   document.querySelectorAll('[data-game-mode]').forEach((button) => {
