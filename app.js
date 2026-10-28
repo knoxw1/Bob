@@ -559,7 +559,8 @@ function drawNetworkFrame(forceComplete = false) {
   networkEdges = nextEdges;
 
   if (progress >= 1) previousVisualization = currentVisualization;
-  scheduleNetworkFrame();
+  const stillAnimating = progress < 1 || (networkMode === "signals" && (training || learningGame || performance.now() < signalActivityUntil)) || (networkMode === "signals" && signalDrainPaths.length > 0);
+  if (stillAnimating) scheduleNetworkFrame();
 }
 
 function showNetwork(visualization, activity, signal = false) {

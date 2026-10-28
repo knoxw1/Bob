@@ -9,12 +9,14 @@
     "dev": "vite --host 127.0.0.1",
     "start": "node server.js",
     "scrape:chesscom": "node scripts/scrape-chesscom.mjs",
+    "train:stockfish": "node scripts/train-against-stockfish.mjs",
     "serve": "node server.js",
     "test": "node --test"
   },
   "dependencies": {
     "@tensorflow/tfjs": "^4.22.0",
     "chess.js": "^1.4.0",
+    "stockfish": "^19.0.1",
     "vite": "^6.4.1"
   },
   "engines": {

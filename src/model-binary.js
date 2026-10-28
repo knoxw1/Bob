@@ -1,5 +1,5 @@
-export const MODEL_WEIGHT_SHAPES = [[84, 512], [512], [512, 512], [512], [512, 7], [7]];
-export const CHESS_MODEL_WEIGHT_SHAPES = [[836, 512], [512], [512, 512], [512], [512, 4864], [4864]];
+export const MODEL_WEIGHT_SHAPES = [[84, 512], [512], [512, 512], [512], [512, 512], [512], [512, 7], [7]];
+export const CHESS_MODEL_WEIGHT_SHAPES = [[836, 512], [512], [512, 512], [512], [512, 512], [512], [512, 4864], [4864]];
 
 function validateWeights(weights, shapes, label) {
   if (!Array.isArray(weights) || weights.length !== shapes.length) {

@@ -16,6 +16,7 @@ function createModel() {
   const model = tf.sequential();
   model.add(tf.layers.dense({ inputShape: [CHESS_STATE_SIZE], units: 512, activation: 'relu' }));
   model.add(tf.layers.dense({ units: 512, activation: 'relu' }));
+  model.add(tf.layers.dense({ units: 512, activation: 'relu' }));
   model.add(tf.layers.dense({ units: CHESS_ACTION_COUNT, activation: 'linear' }));
   model.compile({ optimizer: tf.train.adam(0.0008), loss: 'meanSquaredError' });
   return model;
@@ -190,6 +191,7 @@ export class ChessAgent {
     };
     const hiddenOne = forward(state, kernels[0], biases[0], CHESS_STATE_SIZE, 512, true);
     const hiddenTwo = forward(hiddenOne, kernels[1], biases[1], 512, 512, true);
+    const hiddenThree = forward(hiddenTwo, kernels[2], biases[2], 512, 512, true);
     const values = this.predict(state);
     const outputs = game.moves({ verbose: true })
       .map((move) => ({ value: values[chessMoveIndex(move)], label: move.san, action: chessMoveIndex(move) }))
@@ -212,7 +214,7 @@ export class ChessAgent {
         hiddenHidden: makeEdges(Array.from({ length: 512 }, (_, index) => index), Array.from({ length: 512 }, (_, index) => index),
           (source, target) => kernels[1][source * 512 + target], 512, 5),
         hiddenOutput: makeEdges(Array.from({ length: 512 }, (_, index) => index), outputs,
-          (source, target) => kernels[2][source * CHESS_ACTION_COUNT + target.action], outputs.length, 1),
+          (source, target) => kernels[3][source * CHESS_ACTION_COUNT + target.action], outputs.length, 1),
       },
     };
   }

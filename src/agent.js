@@ -10,6 +10,7 @@ function createModel() {
   const model = tf.sequential();
   model.add(tf.layers.dense({ inputShape: [STATE_SIZE], units: 512, activation: 'relu' }));
   model.add(tf.layers.dense({ units: 512, activation: 'relu' }));
+  model.add(tf.layers.dense({ units: 512, activation: 'relu' }));
   model.add(tf.layers.dense({ units: COLS, activation: 'linear' }));
   model.compile({ optimizer: tf.train.adam(0.001), loss: 'meanSquaredError' });
   return model;
@@ -240,6 +241,7 @@ export class ConnectFourAgent {
     };
     const hiddenOne = forward(state, kernels[0], biases[0], STATE_SIZE, 512, true);
     const hiddenTwo = forward(hiddenOne, kernels[1], biases[1], 512, 512, true);
+    const hiddenThree = forward(hiddenTwo, kernels[2], biases[2], 512, 512, true);
     const outputs = this.predict(state);
     const makeEdges = (fromIndices, toIndices, kernel, outputSize, topCount) => fromIndices.flatMap((from, source) => {
       const strongest = toIndices.map((to, target) => ({
@@ -266,7 +268,7 @@ export class ConnectFourAgent {
       edges: {
         inputHidden: makeEdges(inputIndices, hiddenIndices, kernels[0], 512, 5),
         hiddenHidden: makeEdges(hiddenIndices, hiddenIndices, kernels[1], 512, 5),
-        hiddenOutput: makeEdges(hiddenIndices, Array.from({ length: COLS }, (_, index) => index), kernels[2], COLS, COLS),
+        hiddenOutput: makeEdges(hiddenIndices, Array.from({ length: COLS }, (_, index) => index), kernels[3], COLS, COLS),
       },
     };
   }
